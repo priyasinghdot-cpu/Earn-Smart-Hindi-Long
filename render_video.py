@@ -19,6 +19,7 @@ resume_url = os.environ.get('RESUME_URL')
 
 print(f"Total Scenes to render: {len(scenes_data)}")
 
+# AI Voiceover Generation
 subprocess.run(['edge-tts', '--voice', 'hi-IN-MadhurNeural', '--text', full_text, '--write-media', 'voiceover.mp3'])
 voiceover = AudioFileClip("voiceover.mp3")
 
@@ -28,22 +29,27 @@ audio_clips = [voiceover]
 headers = {"Authorization": pexels_key}
 current_time = 0.0
 
+# Load Sound Effects if available
 try:
     whoosh_sfx = AudioFileClip("whoosh.mp3").volumex(0.25)
-    pop_sfx = AudioFileClip("pop.mp3").volumex(0.15)       
+    pop_sfx = AudioFileClip("pop.mp3").volumex(0.15)        
 except:
     whoosh_sfx = pop_sfx = None
 
 viral_colors = ['#FFD400', '#00FFFF', '#FFFFFF', '#39FF14'] 
-TARGET_W, TARGET_H = 1920, 1080
+TARGET_W, TARGET_H = 1920, 1080 # Long Form Video Dimensions
 
 for i, scene in enumerate(scenes_data):
-    keyword = scene.get('keyword', 'nature')
+    # Fallback keyword updated for Success/Earning niche
+    keyword = scene.get('keyword', 'cinematic money') 
     text_line = scene.get('text', '')
+    
+    # Calculate duration based on text length proportion
     scene_duration = voiceover.duration * (len(text_line) / max(total_chars, 1))
     if scene_duration < 1.0: scene_duration = 1.0
     
     try:
+        # Pexels API fetching Landscape videos for Long Form
         res = requests.get(f"https://api.pexels.com/videos/search?query={keyword}&per_page=1&orientation=landscape", headers=headers).json()
         video_url = res['videos'][0]['video_files'][0]['link']
         
@@ -57,9 +63,11 @@ for i, scene in enumerate(scenes_data):
             clip = clip.resize(width=TARGET_W)
         clip = clip.crop(x_center=clip.w/2, y_center=clip.h/2, width=TARGET_W, height=TARGET_H)
         
+        # Slow Zoom Effect & Dark Overlay for Text Visibility
         zoomed_clip = clip.resize(lambda t: 1.0 + 0.04 * (t / scene_duration)).set_position(('center', 'center'))
         dark_overlay = ColorClip(size=(TARGET_W, TARGET_H), color=(0,0,0)).set_opacity(0.35).set_position(('center', 'center')).set_duration(scene_duration)
         
+        # Dynamic Text Rendering (3 words per chunk)
         words = text_line.split(' ')
         chunk_size = 3
         chunks = [' '.join(words[j:j + chunk_size]) for j in range(0, len(words), chunk_size)]
@@ -87,12 +95,14 @@ for i, scene in enumerate(scenes_data):
 
 final_video = concatenate_videoclips(video_clips, method="compose")
 
+# Progress Bar
 final_duration = final_video.duration
 progress_bar = ColorClip(size=(TARGET_W, 15), color=(255, 0, 0))
 progress_bar = progress_bar.set_position(lambda t: (-TARGET_W + int(TARGET_W * (t / max(final_duration, 1))), 'bottom'))
 progress_bar = progress_bar.set_duration(final_duration)
 final_video = CompositeVideoClip([final_video, progress_bar])
 
+# Background Music
 try:
     bgm = AudioFileClip("bgm.mp3").volumex(0.10)
     if bgm.duration < final_video.duration: bgm = afx.audio_loop(bgm, duration=final_video.duration)
@@ -141,7 +151,7 @@ print(f"🔥 FINAL YOUTUBE LINK: {video_link} 🔥")
 
 payload = {
     "chat_id": chat_id, 
-    "message": "👑 Bhai! 100M+ Views Long Video Ready! 🔥", 
+    "message": "👑 Bhai! 300M+ Views Long Video Ready! 🔥", 
     "youtube_url": video_link
 }
 
