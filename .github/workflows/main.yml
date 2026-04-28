@@ -8,7 +8,8 @@ on:
 jobs:
   build_video:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # ✅ FIX: Timer ko 45 se badha kar 120 minutes kar diya hai taaki video aaram se upload ho sake
+    timeout-minutes: 120
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -22,7 +23,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y imagemagick fonts-dejavu
-          # 100% Bulletproof ImageMagick Fixes for TextClip
           sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml || true
           sudo sed -i '/pattern="@\*"/d' /etc/ImageMagick-6/policy.xml || true
 
