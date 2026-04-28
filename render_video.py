@@ -23,7 +23,9 @@ print(f"Total Scenes to render: {len(scenes_data)}")
 subprocess.run(['edge-tts', '--voice', 'hi-IN-SwaraNeural', '--text', full_text, '--write-media', 'voiceover.mp3'])
 voiceover = AudioFileClip("voiceover.mp3")
 
-total_chars = sum(len(s['text']) for s in scenes_data)
+# ✅ PERFECT SYNC FIX: Characters ki jagah Total Words ginenge
+total_words = sum(len(s['text'].split()) for s in scenes_data)
+
 video_clips = []
 audio_clips = [voiceover]
 headers = {"Authorization": pexels_key}
@@ -44,14 +46,20 @@ for i, scene in enumerate(scenes_data):
     keyword = scene.get('keyword', 'cinematic money') 
     text_line = scene.get('text', '')
     
-    # Calculate duration based on text length proportion
-    scene_duration = voiceover.duration * (len(text_line) / max(total_chars, 1))
-    if scene_duration < 1.0: scene_duration = 1.0
+    # ✅ PERFECT SYNC FIX: Scene ka time uske exact words ke hisaab se niklega
+    scene_words = len(text_line.split())
+    scene_duration = voiceover.duration * (scene_words / max(total_words, 1))
     
     try:
         # Pexels API fetching Landscape videos for Long Form
         res = requests.get(f"https://api.pexels.com/videos/search?query={keyword}&per_page=1&orientation=landscape", headers=headers).json()
-        video_url = res['videos'][0]['video_files'][0]['link']
+        
+        if 'videos' in res and len(res['videos']) > 0:
+            video_url = res['videos'][0]['video_files'][0]['link']
+        else:
+            print(f"No video found for {keyword}, using default fallback.")
+            res = requests.get(f"https://api.pexels.com/videos/search?query=technology&per_page=1&orientation=landscape", headers=headers).json()
+            video_url = res['videos'][0]['video_files'][0]['link']
         
         vid_path = f"vid_{i}.mp4"
         with open(vid_path, "wb") as f:
@@ -72,7 +80,9 @@ for i, scene in enumerate(scenes_data):
         chunk_size = 3
         chunks = [' '.join(words[j:j + chunk_size]) for j in range(0, len(words), chunk_size)]
         word_clips = []
-        duration_per_chunk = scene_duration / len(chunks)
+        
+        # Sync Fix for chunks division
+        duration_per_chunk = scene_duration / max(len(chunks), 1)
         
         for w_i, chunk in enumerate(chunks):
             current_color = viral_colors[w_i % len(viral_colors)]
@@ -114,38 +124,33 @@ final_audio = CompositeAudioClip(audio_clips)
 final_video = final_video.set_audio(final_audio)
 
 print("Rendering Final COMPRESSED LONG Video...")
-final_video.write_videofile("final_video.mp4", fps=24, codec="libx264", audio_codec="aac", threads=2, bitrate="1000k", preset="ultrafast")
+final_video.write_videofile("final_video.mp4", fps=24, codec="libx264", audio_codec="aac", threads=4, bitrate="2000k", preset="ultrafast")
 
 print("Starting 5-Layer Indestructible Upload System...")
 video_link = "Upload Failed"
 
-if not video_link.startswith("http"):
-    try:
-        print("Trying 0x0.st API...")
-        res = requests.post("https://0x0.st", files={'file': open('final_video.mp4', 'rb')}, timeout=600)
-        if res.text.startswith("http"): video_link = res.text.strip()
-    except Exception as e: print(f"0x0.st failed: {e}")
+endpoints = [
+    ("File.io", "https://file.io", "file", lambda r: r.json()['link']),
+    ("0x0.st", "https://0x0.st", "file", lambda r: r.text.strip()),
+    ("Uguu.se", "https://uguu.se/upload.php", "files[]", lambda r: r.json()['files'][0]['url']),
+    ("Catbox.moe", "https://catbox.moe/user/api.php", "fileToUpload", lambda r: r.text.strip())
+]
 
-if not video_link.startswith("http"):
+for name, url, field, get_link in endpoints:
+    if video_link != "Upload Failed" and video_link.startswith("http"): break
     try:
-        print("Trying Uguu.se API...")
-        res = requests.post("https://uguu.se/upload.php", files={'files[]': open('final_video.mp4', 'rb')}, timeout=600)
-        if res.status_code == 200: video_link = res.json()['files'][0]['url']
-    except Exception as e: print(f"Uguu.se failed: {e}")
-
-if not video_link.startswith("http"):
-    try:
-        print("Trying Tmpfiles API...")
-        res = requests.post("https://tmpfiles.org/api/v1/upload", files={'file': open('final_video.mp4', 'rb')}, timeout=600)
-        if res.status_code == 200: video_link = res.json()['data']['url'].replace('tmpfiles.org/', 'tmpfiles.org/dl/')
-    except Exception as e: print(f"Tmpfiles failed: {e}")
-
-if not video_link.startswith("http"):
-    try:
-        print("Trying Catbox API...")
-        res = requests.post("https://catbox.moe/user/api.php", data={'reqtype': 'fileupload'}, files={'fileToUpload': open('final_video.mp4', 'rb')}, timeout=600)
-        if res.text.startswith("http"): video_link = res.text.strip()
-    except Exception as e: print(f"Catbox failed: {e}")
+        print(f"Trying upload to {name}...")
+        files = {field: open("final_video.mp4", 'rb')}
+        data = {'reqtype': 'fileupload'} if "catbox" in url else {}
+        res = requests.post(url, files=files, data=data, timeout=300)
+        
+        if res.status_code == 200:
+            link = get_link(res)
+            if "http" in link: 
+                video_link = link
+                print(f"✅ Upload Success: {video_link}")
+    except Exception as e: 
+        print(f"❌ {name} failed: {e}")
 
 print(f"🔥 FINAL YOUTUBE LINK: {video_link} 🔥")
 
