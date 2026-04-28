@@ -20,7 +20,7 @@ resume_url = os.environ.get('RESUME_URL')
 print(f"Total Scenes to render: {len(scenes_data)}")
 
 # AI Voiceover Generation
-subprocess.run(['edge-tts', '--voice', 'hi-IN-MadhurNeural', '--text', full_text, '--write-media', 'voiceover.mp3'])
+subprocess.run(['edge-tts', '--voice', 'hi-IN-SwaraNeural', '--text', full_text, '--write-media', 'voiceover.mp3'])
 voiceover = AudioFileClip("voiceover.mp3")
 
 total_chars = sum(len(s['text']) for s in scenes_data)
