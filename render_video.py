@@ -41,7 +41,7 @@ for i, scene in enumerate(scenes_data):
     
     if not text_line: continue
     
-    # 1. SCENE-BY-SCENE AUDIO GENERATION (No sync issues)
+    # 1. SCENE-BY-SCENE AUDIO GENERATION
     temp_txt_path = "temp_scene.txt"
     audio_path = f"voice_scene_{i}.mp3"
     
@@ -50,7 +50,15 @@ for i, scene in enumerate(scenes_data):
         
     try:
         subprocess.run([sys.executable, '-m', 'edge_tts', '--voice', 'hi-IN-SwaraNeural', '-f', temp_txt_path, '--write-media', audio_path], check=True)
-        scene_audio = AudioFileClip(audio_path).fx(vfx.speedx, 1.1)
+        raw_scene_audio = AudioFileClip(audio_path).fx(vfx.speedx, 1.1)
+        
+        # --- FIX START: Har scene ki shuruati silence ko 0.3 seconds trim kar rahe hain ---
+        if raw_scene_audio.duration > 0.5:
+            scene_audio = raw_scene_audio.subclip(0.3)
+        else:
+            scene_audio = raw_scene_audio
+        # --- FIX END ---
+        
         scene_duration = scene_audio.duration
         
         master_audio_clips.append(scene_audio.set_start(current_time))
@@ -144,7 +152,7 @@ endpoints = [
     ("File.io", "https://file.io", "file", lambda r: r.json()['link']),
     ("0x0.st", "https://0x0.st", "file", lambda r: r.text.strip()),
     ("Uguu.se", "https://uguu.se/upload.php", "files[]", lambda r: r.json()['files'][0]['url']),
-    ("Catbox.moe", "https://catbox.moe/user/api.php", "fileToUpload", lambda r: r.text.strip())
+    ("Catbox.moe", "https://catbox.moe/user/api.php", "reqtype", lambda r: r.text.strip())
 ]
 
 for name, url, field, get_link in endpoints:
