@@ -1,11 +1,10 @@
 import os, sys, requests, json, subprocess, socket
 import moviepy.editor as mpe
-import urllib3.util.connection as urllib3_cn
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, concatenate_videoclips, vfx, afx, ColorClip
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-# 🛡️ HACKER TRICK: Force IPv4 to bypass Hostinger "Network is unreachable" block
-def allowed_gai_family(): return socket.AF_INET
-urllib3_cn.allowed_gai_family = allowed_gai_family
+# ⚠️ IPv4 HACKER TRICK REMOVED TO PREVENT ROUTING ERRORS WITH N8N WEBHOOKS
 
 HINDI_FONT_FILE = "Hindi.ttf" 
 
@@ -182,9 +181,24 @@ safe_headers = {
     'Accept': 'application/json'
 }
 
+# ==========================================
+# RESUME N8N WEBHOOK WITH AUTO-RETRY
+# ==========================================
 if resume_url:
     print(f"Resuming n8n workflow at: {resume_url}")
+    
+    session = requests.Session()
+    retries = Retry(
+        total=5, 
+        backoff_factor=2, 
+        status_forcelist=[403, 408, 429, 500, 502, 503, 504],
+        allowed_methods=["POST"]
+    )
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    session.mount('http://', HTTPAdapter(max_retries=retries))
+    
     try:
-        requests.post(resume_url, json={"body": payload}, headers=safe_headers, timeout=30)
+        response = session.post(resume_url, json={"body": payload}, headers=safe_headers, timeout=60)
+        print(f"✅ n8n successfully resumed! Status Code: {response.status_code}")
     except Exception as e:
-        print(f"Warning: Failed to resume n8n. Error: {e}")
+        print(f"❌ Warning: Failed to resume n8n after retries. Error: {e}")
