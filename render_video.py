@@ -1,10 +1,15 @@
 import os, sys, requests, json, subprocess, socket
+import urllib3.util.connection as urllib3_cn
 import moviepy.editor as mpe
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, concatenate_videoclips, vfx, afx, ColorClip
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# ⚠️ IPv4 HACKER TRICK REMOVED TO PREVENT ROUTING ERRORS WITH N8N WEBHOOKS
+# ⚠️ FIX ADDED BACK: Force IPv4 connection to prevent GitHub Actions [Errno 101] Network is unreachable with n8n Webhooks
+def allowed_gai_family():
+    return socket.AF_INET
+
+urllib3_cn.allowed_gai_family = allowed_gai_family
 
 HINDI_FONT_FILE = "Hindi.ttf" 
 
