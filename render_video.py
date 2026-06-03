@@ -1,15 +1,8 @@
-import os, sys, requests, json, subprocess, socket
-import urllib3.util.connection as urllib3_cn
+import os, sys, requests, json, subprocess, time
 import moviepy.editor as mpe
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, concatenate_videoclips, vfx, afx, ColorClip
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-# ⚠️ FIX ADDED BACK: Force IPv4 connection to prevent GitHub Actions [Errno 101] Network is unreachable with n8n Webhooks
-def allowed_gai_family():
-    return socket.AF_INET
-
-urllib3_cn.allowed_gai_family = allowed_gai_family
+# (IPv4 Hack removed to prevent routing timeouts on GitHub Actions)
 
 HINDI_FONT_FILE = "Hindi.ttf" 
 
@@ -181,29 +174,35 @@ payload = {
     "youtube_url": video_link
 }
 
-safe_headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    'Accept': 'application/json'
-}
-
 # ==========================================
-# RESUME N8N WEBHOOK WITH AUTO-RETRY
+# RESUME N8N WEBHOOK WITH CUSTOM AUTO-RETRY
 # ==========================================
 if resume_url:
     print(f"Resuming n8n workflow at: {resume_url}")
     
-    session = requests.Session()
-    retries = Retry(
-        total=5, 
-        backoff_factor=2, 
-        status_forcelist=[403, 408, 429, 500, 502, 503, 504],
-        allowed_methods=["POST"]
-    )
-    session.mount('https://', HTTPAdapter(max_retries=retries))
-    session.mount('http://', HTTPAdapter(max_retries=retries))
+    safe_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'  # Explicitly telling n8n that this is JSON data
+    }
     
-    try:
-        response = session.post(resume_url, json={"body": payload}, headers=safe_headers, timeout=60)
-        print(f"✅ n8n successfully resumed! Status Code: {response.status_code}")
-    except Exception as e:
-        print(f"❌ Warning: Failed to resume n8n after retries. Error: {e}")
+    max_retries = 5
+    webhook_success = False
+
+    for attempt in range(max_retries):
+        try:
+            print(f"Attempting to call n8n webhook (Attempt {attempt + 1}/{max_retries})...")
+            # Timeout increased to 120 seconds for safety
+            response = requests.post(resume_url, json={"body": payload}, headers=safe_headers, timeout=120)
+            response.raise_for_status() 
+            print(f"✅ n8n successfully resumed! Status Code: {response.status_code}")
+            webhook_success = True
+            break
+        except Exception as e:
+            print(f"❌ n8n Webhook Attempt {attempt + 1} Failed: {e}")
+            if attempt < max_retries - 1:
+                print("⏳ Waiting 10 seconds before next retry...")
+                time.sleep(10)
+    
+    if not webhook_success:
+        print("⚠️ All 5 attempts to resume n8n failed. Please check your Hostinger VPS Firewall and ensure Port 443 is open for all IPs.")
