@@ -2,8 +2,6 @@ import os, sys, requests, json, subprocess, time
 import moviepy.editor as mpe
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, concatenate_videoclips, vfx, afx, ColorClip
 
-# (IPv4 Hack removed to prevent routing timeouts on GitHub Actions)
-
 HINDI_FONT_FILE = "Hindi.ttf" 
 
 chat_id = os.environ.get('CHAT_ID')
@@ -11,6 +9,8 @@ webhook_url = os.environ.get('WEBHOOK_URL')
 pexels_key = os.environ.get('PEXELS_API_KEY')
 scenes_data = json.loads(os.environ.get('SCENES_DATA', '[]'))
 resume_url = os.environ.get('RESUME_URL')
+title = os.environ.get('TITLE', 'Mind-blowing Earning Secret')
+thumbnail_prompt = os.environ.get('THUMBNAIL_PROMPT', 'Cinematic beautiful thumbnail')
 
 print(f"Total Scenes to render: {len(scenes_data)}")
 
@@ -38,7 +38,7 @@ for i, scene in enumerate(scenes_data):
     
     if not text_line: continue
     
-    # 1. SCENE-BY-SCENE AUDIO GENERATION
+    # 1. SCENE-BY-SCENE AUDIO GENERATION (Swara Female Voice)
     temp_txt_path = "temp_scene.txt"
     audio_path = f"voice_scene_{i}.mp3"
     
@@ -46,15 +46,15 @@ for i, scene in enumerate(scenes_data):
         f.write(text_line)
         
     try:
+        # Edge-tts directly executes with Swara neural profile
         subprocess.run([sys.executable, '-m', 'edge_tts', '--voice', 'hi-IN-SwaraNeural', '-f', temp_txt_path, '--write-media', audio_path], check=True)
         raw_scene_audio = AudioFileClip(audio_path).fx(vfx.speedx, 1.1)
         
-        # --- FIX START: Har scene ki shuruati silence ko 0.3 seconds trim kar rahe hain ---
+        # Trim baseline silence threshold (0.3 seconds)
         if raw_scene_audio.duration > 0.5:
             scene_audio = raw_scene_audio.subclip(0.3)
         else:
             scene_audio = raw_scene_audio
-        # --- FIX END ---
         
         scene_duration = scene_audio.duration
         
@@ -65,7 +65,7 @@ for i, scene in enumerate(scenes_data):
         print(f"Audio failed for scene {i}: {e}")
         continue
         
-    # 2. VIDEO & TEXT PROCESSING (Landscape)
+    # 2. VIDEO & TEXT PROCESSING (Landscape Layout)
     try:
         search_query = f"{keyword} finance technology"
         res = requests.get(f"https://api.pexels.com/videos/search?query={search_query}&per_page=1&orientation=landscape", headers=headers, timeout=15).json()
@@ -88,7 +88,7 @@ for i, scene in enumerate(scenes_data):
         zoomed_clip = clip.resize(lambda t: 1.0 + 0.04 * (t / scene_duration)).set_position(('center', 'center'))
         dark_overlay = ColorClip(size=(TARGET_W, TARGET_H), color=(0,0,0)).set_opacity(0.35).set_duration(scene_duration)
         
-        # CAPTIONS (3 Words for Long format)
+        # CAPTIONS TEXT TRACK (3 Words Grouping)
         words = text_line.split(' ')
         chunk_size = 3 
         chunks = [' '.join(words[j:j + chunk_size]) for j in range(0, len(words), chunk_size)]
@@ -115,11 +115,11 @@ for i, scene in enumerate(scenes_data):
     except Exception as e:
         print(f"Error on scene {i}: {e}")
 
-# CLEANUP TEMP FILES
+# CLEANUP SYSTEM METADATA
 if os.path.exists("temp_scene.txt"): os.remove("temp_scene.txt")
 
 # ==========================================
-# STITCHING & UPLOADS
+# STITCHING & PROGRESS INTERACTION
 # ==========================================
 final_video = concatenate_videoclips(video_clips, method="compose")
 
@@ -142,7 +142,7 @@ final_video = final_video.set_audio(final_audio)
 print("Rendering Final COMPRESSED LONG Video...")
 final_video.write_videofile("final_video.mp4", fps=24, codec="libx264", audio_codec="aac", threads=2, bitrate="2000k", preset="ultrafast")
 
-print("Starting 5-Layer Indestructible Upload System...")
+print("Starting Core Indestructible Upload System...")
 video_link = "Upload Failed"
 
 endpoints = [
@@ -168,22 +168,26 @@ for name, url, field, get_link in endpoints:
     except Exception as e: 
         print(f"❌ {name} failed: {e}")
 
-payload = {
-    "chat_id": chat_id, 
-    "message": "👑 Bhai! Long Finance Video Ready (100% PERFECT SYNC)! 🔥", 
-    "youtube_url": video_link
-}
+# Router formatting structural rule for parsing validation
+message_payload = f"READY_TO_UPLOAD|{video_link}|{title}|{thumbnail_prompt}"
 
 # ==========================================
-# RESUME N8N WEBHOOK WITH CUSTOM AUTO-RETRY
+# RESUME N8N WEBHOOK WITH PAYLOAD CONTRACT
 # ==========================================
 if resume_url:
     print(f"Resuming n8n workflow at: {resume_url}")
     
     safe_headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0',
         'Accept': 'application/json',
-        'Content-Type': 'application/json'  # Explicitly telling n8n that this is JSON data
+        'Content-Type': 'application/json'
+    }
+    
+    payload = {
+        "message": {
+            "text": message_payload,
+            "chat": {"id": int(chat_id)}
+        }
     }
     
     max_retries = 5
@@ -192,8 +196,7 @@ if resume_url:
     for attempt in range(max_retries):
         try:
             print(f"Attempting to call n8n webhook (Attempt {attempt + 1}/{max_retries})...")
-            # Timeout increased to 120 seconds for safety
-            response = requests.post(resume_url, json={"body": payload}, headers=safe_headers, timeout=120)
+            response = requests.post(resume_url, json=payload, headers=safe_headers, timeout=120)
             response.raise_for_status() 
             print(f"✅ n8n successfully resumed! Status Code: {response.status_code}")
             webhook_success = True
@@ -201,8 +204,7 @@ if resume_url:
         except Exception as e:
             print(f"❌ n8n Webhook Attempt {attempt + 1} Failed: {e}")
             if attempt < max_retries - 1:
-                print("⏳ Waiting 10 seconds before next retry...")
                 time.sleep(10)
     
     if not webhook_success:
-        print("⚠️ All 5 attempts to resume n8n failed. Please check your Hostinger VPS Firewall and ensure Port 443 is open for all IPs.")
+        print("⚠️ All 5 attempts to resume n8n failed.")
