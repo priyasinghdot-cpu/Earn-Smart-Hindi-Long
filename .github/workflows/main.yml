@@ -22,9 +22,13 @@ jobs:
       - name: Install System Dependencies (For Subtitles & Fast Render)
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick fonts-dejavu ffmpeg
+          sudo apt-get install -y imagemagick fonts-indic ffmpeg wget
           sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml || true
           sudo sed -i '/pattern="@\*"/d' /etc/ImageMagick-6/policy.xml || true
+
+      - name: Download Hindi Font
+        run: |
+          wget https://github.com/google/fonts/raw/main/ofl/hind/Hind-Bold.ttf -O Hindi.ttf
 
       - name: Install Libraries
         run: |
