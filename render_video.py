@@ -2,14 +2,14 @@ import os, sys, requests, json, subprocess, socket, gc
 import urllib3.util.connection as urllib3_cn
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, ColorClip, vfx, afx
 
-# 🛡️ Force IPv4 to bypass Hostinger block (agar API calls hostinger se ja rahe hain)
+# 🛡️ Force IPv4 to bypass any strict server blocks
 def allowed_gai_family():
     return socket.AF_INET
 urllib3_cn.allowed_gai_family = allowed_gai_family
 
 HINDI_FONT_FILE = "Hindi.ttf" 
 
-# --- VARIABLES DEFINED HERE ---
+# --- VARIABLES FETCHED FROM GITHUB ACTIONS ---
 chat_id = os.environ.get('CHAT_ID')
 pexels_key = os.environ.get('PEXELS_API_KEY')
 scenes_data = json.loads(os.environ.get('SCENES_DATA', '[]'))
@@ -43,8 +43,8 @@ for i, scene in enumerate(scenes_data):
     
     if not text_line: continue
     
-    # 1. SCENE-BY-SCENE AUDIO GENERATION (Swara Female Voice for Earn-Smart)
-    temp_txt_path = "temp_scene.txt"
+    # 1. SCENE-BY-SCENE AUDIO GENERATION (Swara Female Voice)
+    temp_txt_path = f"temp_scene_{i}.txt"
     audio_path = f"voice_scene_{i}.mp3"
     
     with open(temp_txt_path, "w", encoding="utf-8") as f:
@@ -53,14 +53,14 @@ for i, scene in enumerate(scenes_data):
     try:
         # Generate Voiceover
         subprocess.run([sys.executable, '-m', 'edge_tts', '--voice', 'hi-IN-SwaraNeural', '-f', temp_txt_path, '--write-media', audio_path], check=True)
-        raw_scene_audio = AudioFileClip(audio_path).fx(vfx.speedx, 1.1)
+        raw_scene_audio = AudioFileClip(audio_path).fx(vfx.speedx, 1.05) # Slight speedup for high energy
         
-        # Trim baseline silence
-        if raw_scene_audio.duration > 0.5:
-            scene_audio = raw_scene_audio.subclip(0.3)
+        # Trim baseline silence if audio is long enough
+        if raw_scene_audio.duration > 0.4:
+            scene_audio = raw_scene_audio.subclip(0.2)
         else:
             scene_audio = raw_scene_audio
-        
+            
         scene_duration = scene_audio.duration
         
         master_audio_clips.append(scene_audio.set_start(current_time))
@@ -70,14 +70,15 @@ for i, scene in enumerate(scenes_data):
         print(f"Audio failed for scene {i}: {e}")
         continue
         
-    # 2. VIDEO & TEXT PROCESSING
+    # 2. PEXELS VIDEO FETCHING (Finance & Tech focus)
     try:
-        search_query = f"{keyword} finance technology"
+        search_query = f"{keyword} finance wealth"
         res = requests.get(f"https://api.pexels.com/videos/search?query={search_query}&per_page=1&orientation=landscape", headers=headers, timeout=15).json()
         
         if 'videos' in res and len(res['videos']) > 0:
             video_url = res['videos'][0]['video_files'][0]['link']
         else:
+            # Fallback keyword
             res = requests.get("https://api.pexels.com/videos/search?query=abstract technology money&per_page=1&orientation=landscape", headers=headers, timeout=15).json()
             video_url = res['videos'][0]['video_files'][0]['link']
         
@@ -85,14 +86,20 @@ for i, scene in enumerate(scenes_data):
         with open(vid_path, "wb") as f:
             f.write(requests.get(video_url, timeout=30).content)
             
-        clip = VideoFileClip(vid_path).subclip(0, scene_duration)
+        clip = VideoFileClip(vid_path).subclip(0, min(scene_duration, VideoFileClip(vid_path).duration))
+        # Ensure clip matches scene duration
+        if clip.duration < scene_duration:
+            clip = afx.vfx.loop(clip, duration=scene_duration)
+            
         clip = clip.resize(height=TARGET_H)
         if clip.w < TARGET_W: clip = clip.resize(width=TARGET_W)
         clip = clip.crop(x_center=clip.w/2, y_center=clip.h/2, width=TARGET_W, height=TARGET_H)
         
+        # Zoom Effect
         zoomed_clip = clip.resize(lambda t: 1.0 + 0.04 * (t / scene_duration)).set_position(('center', 'center'))
-        dark_overlay = ColorClip(size=(TARGET_W, TARGET_H), color=(0,0,0)).set_opacity(0.35).set_duration(scene_duration).set_position(('center', 'center'))
+        dark_overlay = ColorClip(size=(TARGET_W, TARGET_H), color=(0,0,0)).set_opacity(0.40).set_duration(scene_duration).set_position(('center', 'center'))
         
+        # 3. TEXT CHUNKING & CAPTIONS
         words = text_line.split(' ')
         chunk_size = 3 
         chunks = [' '.join(words[j:j + chunk_size]) for j in range(0, len(words), chunk_size)]
@@ -103,10 +110,12 @@ for i, scene in enumerate(scenes_data):
         for w_i, chunk in enumerate(chunks):
             current_color = viral_colors[w_i % len(viral_colors)]
             
-            bg_txt = TextClip(chunk, fontsize=100, color='black', font=HINDI_FONT_FILE, stroke_color='black', stroke_width=15, method='caption', size=(1600, None))
+            # Background Stroke Text
+            bg_txt = TextClip(chunk, fontsize=110, color='black', font=HINDI_FONT_FILE, stroke_color='black', stroke_width=18, method='caption', size=(1600, None))
             bg_txt = bg_txt.set_position(('center', 'center')).set_duration(duration_per_chunk).set_start(w_i * duration_per_chunk)
             
-            main_txt = TextClip(chunk, fontsize=100, color=current_color, font=HINDI_FONT_FILE, stroke_color='black', stroke_width=3, method='caption', size=(1600, None))
+            # Main Foreground Text
+            main_txt = TextClip(chunk, fontsize=110, color=current_color, font=HINDI_FONT_FILE, stroke_color='black', stroke_width=4, method='caption', size=(1600, None))
             main_txt = main_txt.set_position(('center', 'center')).set_duration(duration_per_chunk).set_start(w_i * duration_per_chunk)
             
             word_clips.extend([bg_txt, main_txt])
@@ -126,10 +135,10 @@ for i, scene in enumerate(scenes_data):
         
         current_time += scene_duration
         print(f"Scene {i+1} Ready: {keyword}")
+        if os.path.exists(temp_txt_path): os.remove(temp_txt_path)
+        
     except Exception as e:
-        print(f"Error on scene {i}: {e}")
-
-if os.path.exists("temp_scene.txt"): os.remove("temp_scene.txt")
+        print(f"Error on scene {i} video processing: {e}")
 
 # ==========================================
 # DISK CONCATENATION (No RAM usage)
@@ -149,8 +158,9 @@ progress_bar = progress_bar.set_duration(final_video.duration)
 
 final_video = CompositeVideoClip([final_video, progress_bar])
 
+# BACKGROUND MUSIC
 try:
-    bgm = AudioFileClip("bgm.mp3").volumex(0.10)
+    bgm = AudioFileClip("bgm.mp3").volumex(0.08)
     if bgm.duration < final_video.duration: bgm = afx.audio_loop(bgm, duration=final_video.duration)
     else: bgm = bgm.subclip(0, final_video.duration)
     master_audio_clips.append(bgm)
@@ -196,8 +206,11 @@ for name, url, field, get_link in endpoints:
 # ==========================================
 BOT_TOKEN = "7707041789:AAFB0DUbGlypExkUjxm0qpJC60Cj5HFLd-E" 
 
-# Safe pipe separated structure for n8n extraction
-message_text = f"READY_TO_UPLOAD|{video_link}|{title}|{thumbnail_prompt}|{description}"
+# Clean description to prevent multi-line breaks disrupting the n8n split
+safe_description = str(description).replace('\n', '  ')
+safe_title = str(title).replace('|', '')
+
+message_text = f"READY_TO_UPLOAD|{video_link}|{safe_title}|{thumbnail_prompt}|{safe_description}"
 
 try:
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
