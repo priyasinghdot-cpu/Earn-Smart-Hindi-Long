@@ -206,15 +206,17 @@ for name, url, field, get_link in endpoints:
 # ==========================================
 BOT_TOKEN = "7707041789:AAFB0DUbGlypExkUjxm0qpJC60Cj5HFLd-E" 
 
-# Clean description to prevent multi-line breaks disrupting the n8n split
 safe_description = str(description).replace('\n', '  ')
 safe_title = str(title).replace('|', '')
 
-# Valid chat_id check
 if not chat_id or chat_id == "None":
-    print("❌ Error: CHAT_ID is missing or None. Cannot send Telegram message.")
+    print("❌ Error: CHAT_ID is missing. Cannot send Telegram message.")
 else:
     message_text = f"READY_TO_UPLOAD|{video_link}|{safe_title}|{thumbnail_prompt}|{safe_description}"
+    
+    # TELEGRAM LIMIT FAILSAFE: Truncate message if it exceeds 4000 characters
+    if len(message_text) > 4000:
+        message_text = message_text[:3990] + "...[TRUNC]"
 
     try:
         telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
