@@ -1,4 +1,4 @@
-name: Render Automation Video
+name: Auto Render Earn Smart Video
 
 on:
   repository_dispatch:
@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install System Dependencies (For Subtitles)
+      - name: Install System Dependencies (For Subtitles & Fast Render)
         run: |
           sudo apt-get update
           sudo apt-get install -y imagemagick fonts-dejavu ffmpeg
@@ -36,8 +36,8 @@ jobs:
           FULL_TEXT: ${{ github.event.client_payload.full_text }}
           SCENES_DATA: ${{ github.event.client_payload.scenes_data }}
           CHAT_ID: ${{ github.event.client_payload.chat_id }}
-          RESUME_URL: ${{ github.event.client_payload.resume_url }}
           TITLE: ${{ github.event.client_payload.title }}
+          DESCRIPTION: ${{ github.event.client_payload.description }}
           THUMBNAIL_PROMPT: ${{ github.event.client_payload.thumbnail_prompt }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python render_video.py
