@@ -2,7 +2,7 @@ import os, sys, requests, json, subprocess, socket, gc
 import urllib3.util.connection as urllib3_cn
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, ColorClip, vfx, afx
 
-# 🛡️ Force IPv4 to bypass any strict server blocks
+# Force IPv4 to bypass strict server blocks
 def allowed_gai_family():
     return socket.AF_INET
 urllib3_cn.allowed_gai_family = allowed_gai_family
@@ -19,7 +19,7 @@ thumbnail_prompt = os.environ.get('THUMBNAIL_PROMPT', 'Cinematic beautiful thumb
 
 print(f"Total Scenes to render: {len(scenes_data)}")
 
-# 🌟 LONG FORMAT (Landscape 1920x1080) for Earn-Smart
+# LONG FORMAT (Landscape 1920x1080) for Earn-Smart
 TARGET_W, TARGET_H = 1920, 1080
 viral_colors = ['#FFD400', '#00FFFF', '#FFFFFF', '#39FF14']
 headers = {"Authorization": pexels_key}
@@ -210,12 +210,20 @@ BOT_TOKEN = "7707041789:AAFB0DUbGlypExkUjxm0qpJC60Cj5HFLd-E"
 safe_description = str(description).replace('\n', '  ')
 safe_title = str(title).replace('|', '')
 
-message_text = f"READY_TO_UPLOAD|{video_link}|{safe_title}|{thumbnail_prompt}|{safe_description}"
+# Valid chat_id check
+if not chat_id or chat_id == "None":
+    print("❌ Error: CHAT_ID is missing or None. Cannot send Telegram message.")
+else:
+    message_text = f"READY_TO_UPLOAD|{video_link}|{safe_title}|{thumbnail_prompt}|{safe_description}"
 
-try:
-    telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": message_text}
-    response = requests.post(telegram_url, json=payload)
-    print(f"✅ Webhook bypassed! Sent video details directly to Telegram! Status: {response.status_code}")
-except Exception as e:
-    print(f"❌ Failed to send Telegram alert: {e}")
+    try:
+        telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": str(chat_id).strip(), "text": message_text}
+        response = requests.post(telegram_url, json=payload)
+        
+        if response.status_code == 200:
+            print(f"✅ Webhook bypassed! Sent video details directly to Telegram! Status: {response.status_code}")
+        else:
+            print(f"❌ Telegram alert failed! Status: {response.status_code}, Error: {response.text}")
+    except Exception as e:
+        print(f"❌ Failed to send Telegram alert: {e}")
