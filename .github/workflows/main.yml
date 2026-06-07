@@ -8,8 +8,8 @@ on:
 jobs:
   build_video:
     runs-on: ubuntu-latest
-    # ✅ FIX: Timer ko 45 se badha kar 120 minutes kar diya hai taaki video aaram se upload ho sake
     timeout-minutes: 120
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -22,7 +22,7 @@ jobs:
       - name: Install System Dependencies (For Subtitles)
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick fonts-dejavu
+          sudo apt-get install -y imagemagick fonts-dejavu ffmpeg
           sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml || true
           sudo sed -i '/pattern="@\*"/d' /etc/ImageMagick-6/policy.xml || true
 
@@ -37,6 +37,7 @@ jobs:
           SCENES_DATA: ${{ github.event.client_payload.scenes_data }}
           CHAT_ID: ${{ github.event.client_payload.chat_id }}
           RESUME_URL: ${{ github.event.client_payload.resume_url }}
-          WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+          TITLE: ${{ github.event.client_payload.title }}
+          THUMBNAIL_PROMPT: ${{ github.event.client_payload.thumbnail_prompt }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python render_video.py
