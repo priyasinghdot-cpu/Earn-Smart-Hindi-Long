@@ -1,4 +1,5 @@
 import os, sys, requests, json, subprocess, socket, gc, math, random, time
+import urllib.parse
 import urllib3.util.connection as urllib3_cn
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, ColorClip, afx
 
@@ -16,6 +17,11 @@ scenes_data = json.loads(os.environ.get('SCENES_DATA', '[]'))
 title = os.environ.get('TITLE', 'Mind-blowing Earning Secret')
 description = os.environ.get('DESCRIPTION', 'Make money online secret tricks.')
 thumbnail_prompt = os.environ.get('THUMBNAIL_PROMPT', 'Cinematic beautiful thumbnail')
+
+# --- SMART DYNAMIC FALLBACK KEYWORDS ---
+# GitHub Actions se jo bhi fallback theme aayegi, yeh usey list mein badal dega.
+fallback_env = os.environ.get('FALLBACK_KEYWORDS', 'money, finance, wealth, business, success, abstract technology money')
+FALLBACK_KEYWORDS = [kw.strip() for kw in fallback_env.split(',')]
 
 print(f"Total Scenes to render: {len(scenes_data)}")
 
@@ -68,20 +74,60 @@ for i, scene in enumerate(scenes_data):
         print(f"Audio failed for scene {i}: {e}")
         continue
         
-    # PEXELS VIDEO FETCHING
+    # 🚀 OPTIMIZED TOPIC-BASED VIDEO FETCHING WITH SMART FALLBACK 🚀
     try:
-        search_query = f"{keyword} finance wealth"
-        res = requests.get(f"https://api.pexels.com/videos/search?query={search_query}&per_page=1&orientation=landscape", headers=headers, timeout=15).json()
-        
-        if 'videos' in res and len(res['videos']) > 0:
-            video_url = res['videos'][0]['video_files'][0]['link']
+        kw_lower = keyword.lower()
+        if any(k in kw_lower for k in ['ai', 'tech', 'robot', 'bot', 'website', 'crypto', 'chatgpt', 'software', 'seo', 'traffic', 'internet', 'computer']):
+            search_query = f"{keyword} technology abstract"
+        elif any(k in kw_lower for k in ['money', 'earn', 'finance', 'wealth', 'cash', 'rich', 'income', 'profit', 'business', 'sale']):
+            search_query = f"{keyword} finance wealth"
         else:
+            search_query = keyword
+            
+        queries_to_try = [search_query] + FALLBACK_KEYWORDS
+        is_valid_video = False
+        vid_path = f"vid_{i}.mp4"
+
+        for q in queries_to_try:
+            if is_valid_video: break
+            for attempt in range(2):
+                try:
+                    time.sleep(random.uniform(0.1, 0.5))
+                    # Jab attempts badhein toh safe page=1 rakho taaki khali result na aaye
+                    random_page = random.randint(1, 2) if attempt == 0 else 1
+                    url = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(q)}&per_page=15&page={random_page}&orientation=landscape"
+                    
+                    response = requests.get(url, headers=headers, timeout=15)
+                    
+                    # [IMPROVED]: Added Rate Limit (429) Handling
+                    if response.status_code == 429:
+                        time.sleep(2)
+                        continue
+                        
+                    if response.status_code == 200:
+                        res = response.json()
+                        if 'videos' in res and len(res['videos']) > 0:
+                            current_url = res['videos'][0]['video_files'][0]['link']
+                            
+                            # Download with 200KB Size Check
+                            req = requests.get(current_url, timeout=30)
+                            if req.status_code == 200:
+                                if len(req.content) > 200000:
+                                    with open(vid_path, "wb") as f:
+                                        f.write(req.content)
+                                    is_valid_video = True
+                                    break # Break attempt loop
+                                else:
+                                    print(f"Video file too small ({len(req.content)} bytes), discarding.")
+                except Exception as e:
+                    continue
+
+        if not is_valid_video:
+            # Absolute fallback if everything fails
             res = requests.get("https://api.pexels.com/videos/search?query=abstract technology money&per_page=1&orientation=landscape", headers=headers, timeout=15).json()
             video_url = res['videos'][0]['video_files'][0]['link']
-        
-        vid_path = f"vid_{i}.mp4"
-        with open(vid_path, "wb") as f:
-            f.write(requests.get(video_url, timeout=30).content)
+            with open(vid_path, "wb") as f:
+                f.write(requests.get(video_url, timeout=30).content)
             
         clip = VideoFileClip(vid_path).subclip(0, min(scene_duration, VideoFileClip(vid_path).duration))
         if clip.duration < scene_duration:
@@ -240,7 +286,7 @@ print("\n🚀 Uploading Video directly to GitHub Releases...")
 
 run_id = os.environ.get('GITHUB_RUN_ID', str(int(time.time())))
 tag_name = f"vid-{run_id}"
-repo_name = os.environ.get('GITHUB_REPOSITORY', "amu8085-lab/my-project1") 
+repo_name = os.environ.get('GITHUB_REPOSITORY', "priyasinghdot-cpu/Earn-Smart-Hindi-Long") 
 
 try:
     cmd = ['gh', 'release', 'create', tag_name, 'final_video.mp4', '--repo', repo_name, '--notes', 'Automated Video Render']
