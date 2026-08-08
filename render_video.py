@@ -68,7 +68,7 @@ for i, scene in enumerate(scenes_data):
         scene_duration = clip_audio.duration
         clip_audio.close()
         
-        scene_durations.append(scene_duration)
+        # MOVED FROM HERE to avoid mismatch if video fails
         
     except Exception as e:
         print(f"Audio failed for scene {i}: {e}")
@@ -206,8 +206,10 @@ for i, scene in enumerate(scenes_data):
         scene_filename = f"scene_rendered_{i}.mp4"
         final_scene.write_videofile(scene_filename, fps=24, codec="libx264", preset="ultrafast", audio=False, logger=None)
         
+        # 👇 LISTS UPDATED STRICTLY ON SUCCESSFUL RENDER 👇
         rendered_videos.append(scene_filename)
         rendered_audios.append(trimmed_audio)
+        scene_durations.append(scene_duration) 
         
         final_scene.close()
         clip.close()
