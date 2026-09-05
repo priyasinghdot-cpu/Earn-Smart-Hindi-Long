@@ -309,7 +309,7 @@ if not video_link:
 # ==========================================
 # TELEGRAM BRIDGE
 # ==========================================
-BOT_TOKEN = "7707041789:AAFB0DUbGlypExkUjxm0qpJC60Cj5HFLd-E" 
+BOT_TOKEN = "8507076345:AAEAvxhHDyzxCEvU_SUeQ1gpqmbdyfDGKLY" 
 
 safe_description = str(description).replace('\n', '  ')
 safe_title = str(title).replace('|', '')
