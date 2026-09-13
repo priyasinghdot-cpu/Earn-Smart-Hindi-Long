@@ -19,7 +19,6 @@ description = os.environ.get('DESCRIPTION', 'Make money online secret tricks.')
 thumbnail_prompt = os.environ.get('THUMBNAIL_PROMPT', 'Cinematic beautiful thumbnail')
 
 # --- SMART DYNAMIC FALLBACK KEYWORDS ---
-# GitHub Actions se jo bhi fallback theme aayegi, yeh usey list mein badal dega.
 fallback_env = os.environ.get('FALLBACK_KEYWORDS', 'money, finance, wealth, business, success, abstract technology money')
 FALLBACK_KEYWORDS = [kw.strip() for kw in fallback_env.split(',')]
 
@@ -68,8 +67,6 @@ for i, scene in enumerate(scenes_data):
         scene_duration = clip_audio.duration
         clip_audio.close()
         
-        # MOVED FROM HERE to avoid mismatch if video fails
-        
     except Exception as e:
         print(f"Audio failed for scene {i}: {e}")
         continue
@@ -93,13 +90,11 @@ for i, scene in enumerate(scenes_data):
             for attempt in range(2):
                 try:
                     time.sleep(random.uniform(0.1, 0.5))
-                    # Jab attempts badhein toh safe page=1 rakho taaki khali result na aaye
                     random_page = random.randint(1, 2) if attempt == 0 else 1
                     url = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(q)}&per_page=15&page={random_page}&orientation=landscape"
                     
                     response = requests.get(url, headers=headers, timeout=15)
                     
-                    # [IMPROVED]: Added Rate Limit (429) Handling
                     if response.status_code == 429:
                         time.sleep(2)
                         continue
@@ -109,21 +104,19 @@ for i, scene in enumerate(scenes_data):
                         if 'videos' in res and len(res['videos']) > 0:
                             current_url = res['videos'][0]['video_files'][0]['link']
                             
-                            # Download with 200KB Size Check
                             req = requests.get(current_url, timeout=30)
                             if req.status_code == 200:
                                 if len(req.content) > 200000:
                                     with open(vid_path, "wb") as f:
                                         f.write(req.content)
                                     is_valid_video = True
-                                    break # Break attempt loop
+                                    break 
                                 else:
                                     print(f"Video file too small ({len(req.content)} bytes), discarding.")
                 except Exception as e:
                     continue
 
         if not is_valid_video:
-            # Absolute fallback if everything fails
             res = requests.get("https://api.pexels.com/videos/search?query=abstract technology money&per_page=1&orientation=landscape", headers=headers, timeout=15).json()
             video_url = res['videos'][0]['video_files'][0]['link']
             with open(vid_path, "wb") as f:
@@ -137,30 +130,29 @@ for i, scene in enumerate(scenes_data):
         if clip.w < TARGET_W: clip = clip.resize(width=TARGET_W)
         clip = clip.crop(x_center=clip.w/2, y_center=clip.h/2, width=TARGET_W, height=TARGET_H)
         
-        # Zoom Effect & Overlay
         zoomed_clip = clip.resize(lambda t: 1.0 + 0.04 * (t / scene_duration)).set_position(('center', 'center'))
         dark_overlay = ColorClip(size=(TARGET_W, TARGET_H), color=(0,0,0)).set_opacity(0.40).set_duration(scene_duration).set_position(('center', 'center'))
         
-        # 🔥 ADVANCED KINETIC TEXT ENGINE (Perfect Sync & Animations) 🔥
         def advanced_punch_anim(t):
             if t < 0.06: return 1.6 - 10.0 * t  
             elif t < 0.15: return 1.0 + 1.2 * (t - 0.06) 
             return 1.0
 
+        # 🔥 FIXED POSITION: Right Side Alignment (60% from Left Edge) 🔥
         def get_kinetic_pos(base_y, is_shaking, word_idx):
             def pos(t):
                 idle_y = 7 * math.sin(t * 8 + word_idx)
                 idle_x = 4 * math.cos(t * 6 + word_idx)
+                right_x_pos = TARGET_W * 0.60  # Text set to right side
                 if is_shaking and t > 0.06:
-                    return (TARGET_W/2 + 5 * math.sin(t * 75) + idle_x, base_y + 5 * math.cos(t * 85) + idle_y)
-                return (TARGET_W/2 + idle_x, base_y + idle_y)
+                    return (right_x_pos + 5 * math.sin(t * 75) + idle_x, base_y + 5 * math.cos(t * 85) + idle_y)
+                return (right_x_pos + idle_x, base_y + idle_y)
             return pos
 
         words = text_line.split()
         word_clips = []
 
         if words:
-            # 🚀 SMART SUBTITLE SYNCHRONIZATION 🚀
             word_weights = []
             for w in words:
                 wt = len(w)
@@ -173,7 +165,6 @@ for i, scene in enumerate(scenes_data):
 
             for w_i, word in enumerate(words):
                 word_lower = word.lower()
-                # Added finance specific danger/highlight keywords 
                 is_danger = any(kw in word_lower for kw in ['secret', 'trick', 'hidden', 'scam', 'khatarnaak', 'danger', 'alert', 'mat', 'paisa', 'paise', 'income', 'profit', 'earn'])
                 is_highlight = not is_danger and len(word) > 4
                 
@@ -187,14 +178,17 @@ for i, scene in enumerate(scenes_data):
                     text_y_pos = TARGET_H * 0.75 
                     position_filter = get_kinetic_pos(text_y_pos, is_danger, w_i)
 
+                    # 🔥 PADDING APPLIED & SIZE REMOVED: Auto-width generation to prevent clipping 🔥
+                    display_word = f"  {word}  " 
+
                     if bg_color == 'transparent':
-                        shadow_txt = TextClip(word, fontsize=base_size, color='black', font=HINDI_FONT_FILE, method='caption', size=(1500, None)).resize(advanced_punch_anim).set_position(get_kinetic_pos(text_y_pos + 15, is_danger, w_i)).set_duration(duration_per_word).set_start(current_time_pos)
-                        bg_txt = TextClip(word, fontsize=base_size, color='black', font=HINDI_FONT_FILE, stroke_color='black', stroke_width=16, method='caption', size=(1500, None)).resize(advanced_punch_anim).set_position(position_filter).set_duration(duration_per_word).set_start(current_time_pos)
-                        inner_border_txt = TextClip(word, fontsize=base_size, color='black', font=HINDI_FONT_FILE, stroke_color='white', stroke_width=4, method='caption', size=(1500, None)).resize(advanced_punch_anim).set_position(position_filter).set_duration(duration_per_word).set_start(current_time_pos)
-                        main_txt = TextClip(word, fontsize=base_size, color=current_color, font=HINDI_FONT_FILE, method='caption', size=(1500, None)).resize(advanced_punch_anim).set_position(position_filter).set_duration(duration_per_word).set_start(current_time_pos)
+                        shadow_txt = TextClip(display_word, fontsize=base_size, color='black', font=HINDI_FONT_FILE).resize(advanced_punch_anim).set_position(get_kinetic_pos(text_y_pos + 15, is_danger, w_i)).set_duration(duration_per_word).set_start(current_time_pos)
+                        bg_txt = TextClip(display_word, fontsize=base_size, color='black', font=HINDI_FONT_FILE, stroke_color='black', stroke_width=16).resize(advanced_punch_anim).set_position(position_filter).set_duration(duration_per_word).set_start(current_time_pos)
+                        inner_border_txt = TextClip(display_word, fontsize=base_size, color='black', font=HINDI_FONT_FILE, stroke_color='white', stroke_width=4).resize(advanced_punch_anim).set_position(position_filter).set_duration(duration_per_word).set_start(current_time_pos)
+                        main_txt = TextClip(display_word, fontsize=base_size, color=current_color, font=HINDI_FONT_FILE).resize(advanced_punch_anim).set_position(position_filter).set_duration(duration_per_word).set_start(current_time_pos)
                         word_clips.extend([shadow_txt, bg_txt, inner_border_txt, main_txt])
                     else:
-                        main_txt = TextClip(word, fontsize=base_size, color=current_color, bg_color=bg_color, font=HINDI_FONT_FILE, method='caption', size=(None, None)).resize(advanced_punch_anim).set_position(position_filter).set_duration(duration_per_word).set_start(current_time_pos)
+                        main_txt = TextClip(display_word, fontsize=base_size, color=current_color, bg_color=bg_color, font=HINDI_FONT_FILE).resize(advanced_punch_anim).set_position(position_filter).set_duration(duration_per_word).set_start(current_time_pos)
                         word_clips.append(main_txt)
                 except: pass
                 
@@ -202,11 +196,9 @@ for i, scene in enumerate(scenes_data):
 
         final_scene = CompositeVideoClip([zoomed_clip, dark_overlay] + word_clips, size=(TARGET_W, TARGET_H)).set_duration(scene_duration)
         
-        # RAM FIX: Render Scene Without Audio
         scene_filename = f"scene_rendered_{i}.mp4"
         final_scene.write_videofile(scene_filename, fps=24, codec="libx264", preset="ultrafast", audio=False, logger=None)
         
-        # 👇 LISTS UPDATED STRICTLY ON SUCCESSFUL RENDER 👇
         rendered_videos.append(scene_filename)
         rendered_audios.append(trimmed_audio)
         scene_durations.append(scene_duration) 
@@ -247,26 +239,21 @@ final_audio = AudioFileClip("merged_audio.wav")
 master_audio_clips = [final_audio]
 current_time = 0.0
 
-# Add SFX strictly aligned with exact scene timings
 for dur in scene_durations:
     if whoosh_sfx:
         master_audio_clips.append(whoosh_sfx.set_start(current_time))
     current_time += dur
 
-# PROGRESS BAR
 progress_bar = ColorClip(size=(TARGET_W, 15), color=(255, 0, 0))
 progress_bar = progress_bar.set_position(lambda t: (-TARGET_W + int(TARGET_W * (t / max(final_video.duration, 1))), 'bottom'))
 progress_bar = progress_bar.set_duration(final_video.duration)
 
-# 🔥 Earn Smart Hindi Watermark Implementation 🔥
+# 🔥 FIXED WATERMARK: Positioned perfectly in the top-right corner 🔥
 watermark = TextClip("Earn Smart Hindi", fontsize=55, color='white', font=HINDI_FONT_FILE, stroke_color='black', stroke_width=2)
-# Opacity 0.5 (semi-transparent) and positioned perfectly in the bottom-right corner
-watermark = watermark.set_opacity(0.5).set_position((0.75, 0.88), relative=True).set_duration(final_video.duration)
+watermark = watermark.set_opacity(0.5).set_position(('right', 50)).set_duration(final_video.duration)
 
-# Watermark composite mein add kiya gaya hai
 final_video = CompositeVideoClip([final_video, progress_bar, watermark])
 
-# BACKGROUND MUSIC
 try:
     bgm = AudioFileClip("bgm.mp3").volumex(0.08)
     if bgm.duration < final_video.duration: bgm = afx.audio_loop(bgm, duration=final_video.duration)
