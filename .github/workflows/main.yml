@@ -27,8 +27,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y imagemagick fonts-indic ffmpeg wget
-          sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml || true
-          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"\/>/<!-- <policy domain="path" rights="none" pattern="@*"\/> -->/g' /etc/ImageMagick-6/policy.xml || true
+          # Nuclear fix: Overwrite policy file to remove ALL ImageMagick security blocks
+          sudo bash -c 'echo "<policymap></policymap>" > /etc/ImageMagick-6/policy.xml'
 
       - name: Download Hindi Font
         run: |
