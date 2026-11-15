@@ -1,7 +1,7 @@
 import os, sys, requests, json, subprocess, socket, gc, math, random, time
 import urllib.parse
 import urllib3.util.connection as urllib3_cn
-from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, ColorClip, afx
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, TextClip, ColorClip, afx, vfx
 
 # Force IPv4 to bypass strict server blocks
 def allowed_gai_family():
@@ -124,7 +124,7 @@ for i, scene in enumerate(scenes_data):
             
         clip = VideoFileClip(vid_path).subclip(0, min(scene_duration, VideoFileClip(vid_path).duration))
         if clip.duration < scene_duration:
-            clip = afx.vfx.loop(clip, duration=scene_duration)
+            clip = vfx.loop(clip, duration=scene_duration)
             
         clip = clip.resize(height=TARGET_H)
         if clip.w < TARGET_W: clip = clip.resize(width=TARGET_W)
